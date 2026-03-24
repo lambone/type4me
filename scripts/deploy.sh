@@ -22,13 +22,15 @@ else
     SIGNING_IDENTITY="-"
 fi
 
-echo "Building release..."
-swift build -c release --package-path "$PROJECT_DIR" 2>&1 | grep -E "Build complete|error:|warning:" || true
+echo "Building universal release (arm64 + x86_64)..."
+swift build -c release --package-path "$PROJECT_DIR" --arch arm64 --arch x86_64 2>&1 | grep -E "Build complete|Build succeeded|error:|warning:" || true
 
-if [ -f "$PROJECT_DIR/.build/release/Type4Me" ]; then
+if [ -f "$PROJECT_DIR/.build/apple/Products/Release/Type4Me" ]; then
+    BINARY="$PROJECT_DIR/.build/apple/Products/Release/Type4Me"
+elif [ -f "$PROJECT_DIR/.build/release/Type4Me" ]; then
     BINARY="$PROJECT_DIR/.build/release/Type4Me"
 else
-    BINARY="$(find "$PROJECT_DIR/.build" -path '*/release/Type4Me' -type f | head -n 1)"
+    BINARY="$(find "$PROJECT_DIR/.build" -path '*/release/Type4Me' -type f -not -path '*/x86_64/*' -not -path '*/arm64/*' | head -n 1)"
 fi
 
 if [ ! -f "$BINARY" ]; then
