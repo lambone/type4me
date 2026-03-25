@@ -1,6 +1,11 @@
 {
-  "latest": "1.1.0",
+  "latest": "1.2.0",
   "releases": [
+    {
+      "version": "1.2.0",
+      "date": "2026-03-25",
+      "notes": "- 新增本地语音识别（SherpaOnnx Paraformer/Zipformer），支持离线使用\n- 新增百炼（阿里云）语音识别引擎\n- 新增 Prompt 模板变量 {selected} 和 {clipboard}，录音时可读取选中文本和剪贴板\n- 新增「命令模式」：选中文本后语音下指令，LLM 处理选中内容\n- 新增 Silero VAD 语音活动检测，过滤录音前后的噪声和静音\n- 新增「录音时降低系统音量」开关\n- 新增 macOS 26 菜单栏图标隐藏检测，自动提示用户开启系统设置\n- ASR 断句容忍度从 1.5s 提升到 3s，减少思考停顿被截断\n- 自动过滤 LLM 返回中的 <think> 推理标签（DeepSeek 等模型）\n- 修复 SherpaOnnx 条件编译，无 framework 时项目仍可正常编译\n- 修复 PromptContext 模板变量注入、线程安全、内存安全等问题"
+    },
     {
       "version": "1.1.0",
       "date": "2026-03-24",
