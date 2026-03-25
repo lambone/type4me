@@ -166,6 +166,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        // Check if menu bar icon is hidden by macOS 26+ "Allow in Menu Bar" setting
+        checkMenuBarVisibility()
+
         // Dynamic activation policy: show dock icon when windows are open
         NotificationCenter.default.addObserver(
             self,
@@ -311,6 +314,83 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.setActivationPolicy(.accessory)
             // Resign active so menu bar or previous app gets focus
             NSApp.hide(nil)
+        }
+    }
+
+    // MARK: - Menu Bar Visibility Check (macOS 26+)
+
+    private static let menuBarCheckKey = "tf_menuBarHiddenAlertShown"
+
+    /// On macOS 26 Tahoe, System Settings > Menu Bar > "Allow in Menu Bar" can hide
+    /// third-party status items by rendering them offscreen. Detect this and alert the user.
+    private func checkMenuBarVisibility() {
+        // Only check on macOS 26+ where this feature exists
+        guard ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 26 else { return }
+        // Don't nag repeatedly — only alert once per app version
+        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        let shownForVersion = UserDefaults.standard.string(forKey: Self.menuBarCheckKey)
+        guard shownForVersion != currentVersion else { return }
+
+        // Delay to give SwiftUI MenuBarExtra time to create the status item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+            guard let self else { return }
+            MainActor.assumeIsolated {
+                self.performMenuBarCheck(version: currentVersion)
+            }
+        }
+    }
+
+    private func performMenuBarCheck(version: String) {
+        // Find status bar windows belonging to our app.
+        // SwiftUI's MenuBarExtra creates an NSStatusBarWindow with a button inside.
+        let statusBarWindows = NSApp.windows.filter {
+            $0.className.contains("NSStatusBar")
+        }
+
+        let isVisible: Bool
+        if statusBarWindows.isEmpty {
+            // No status bar window at all — icon wasn't created
+            isVisible = false
+        } else {
+            // Check if any status bar window is in a reasonable screen position.
+            // macOS 26 moves hidden items far offscreen (e.g. y < -10000).
+            let screenFrame = NSScreen.main?.frame ?? .zero
+            isVisible = statusBarWindows.contains { window in
+                let frame = window.frame
+                return frame.origin.x >= -100
+                    && frame.origin.x <= screenFrame.width + 100
+                    && frame.origin.y >= -100
+            }
+        }
+
+        guard !isVisible else { return }
+
+        NSLog("[Type4Me] Menu bar icon appears hidden by system settings")
+
+        // Remember we showed this alert for this version
+        UserDefaults.standard.set(version, forKey: Self.menuBarCheckKey)
+
+        let alert = NSAlert()
+        alert.messageText = L(
+            "菜单栏图标被隐藏",
+            "Menu Bar Icon Hidden"
+        )
+        alert.informativeText = L(
+            "macOS 的菜单栏设置可能隐藏了 Type4Me 图标。\n\n请前往 系统设置 > 菜单栏，在「允许在菜单栏中显示」列表中开启 Type4Me。",
+            "macOS may have hidden the Type4Me icon.\n\nGo to System Settings > Menu Bar and enable Type4Me in the 'Allow in Menu Bar' list."
+        )
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: L("打开系统设置", "Open System Settings"))
+        alert.addButton(withTitle: L("稍后处理", "Later"))
+
+        NSApp.activate(ignoringOtherApps: true)
+        let response = alert.runModal()
+
+        if response == .alertFirstButtonReturn {
+            // Open Menu Bar settings (macOS 26+)
+            if let url = URL(string: "x-apple.systempreferences:com.apple.MenuBar-Settings") {
+                NSWorkspace.shared.open(url)
+            }
         }
     }
 
