@@ -310,6 +310,8 @@ struct ASRSettingsCard: View, SettingsCardHelpers {
             downloadProgress = 0
             asrTestStatus = .idle
             isEditingASR = true
+            // Persist provider switch immediately (don't require a separate "save")
+            KeychainService.selectedASRProvider = newProvider
             loadASRCredentialsForProvider(newProvider)
             refreshModelStatus()
         }
