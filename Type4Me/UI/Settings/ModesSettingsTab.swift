@@ -20,45 +20,18 @@ struct ModesSettingsTab: View {
     @State private var draggingModeId: UUID?
     @State private var selectedASRProvider: ASRProvider = KeychainService.selectedASRProvider
 
-    private var builtinModes: [ProcessingMode] {
-        modes.filter { $0.isBuiltin }
-    }
-
-    private var customModes: [ProcessingMode] {
-        modes.filter { !$0.isBuiltin }
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SettingsSectionHeader(
                 label: "MODES",
                 title: L("处理模式", "Modes"),
-                description: L("配置语音转写与后处理流水线。快速模式实时输出，性能模式优先整段识别，自定义模式可经 LLM 加工。", "Configure speech-to-text and post-processing pipelines. Quick Mode outputs live text, Performance Mode prefers full-audio recognition, and custom modes can use LLM processing.")
+                description: L("配置语音转写与后处理流水线。快速模式实时输出，自定义模式可经 LLM 加工。", "Configure speech-to-text and post-processing pipelines. Quick Mode outputs live text, and custom modes can use LLM processing.")
             )
 
-            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            // BLOCK 1: 内置模式
-            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            sectionHeader(L("内置模式", "Built-in Modes"))
-
-            HStack(spacing: 12) {
-                ForEach(builtinModes) { mode in
-                    builtinModeCard(mode)
-                        .frame(maxWidth: .infinity)
-                }
-            }
-
-            sectionSpacer()
-
-            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            // BLOCK 2: 自定义 Prompt 模式
-            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            sectionHeader(L("自定义模式", "Custom Modes"))
-
             HStack(alignment: .top, spacing: 0) {
-                // Mode list
+                // Left: mode list (all modes)
                 VStack(spacing: 3) {
-                    ForEach(customModes) { mode in
+                    ForEach(modes) { mode in
                         modeRow(mode)
                     }
 
@@ -86,9 +59,9 @@ struct ModesSettingsTab: View {
                     .frame(width: 1)
                     .padding(.vertical, 4)
 
-                // Detail
+                // Right: detail for selected mode
                 Group {
-                    if let mode = selectedCustomMode {
+                    if let mode = selectedMode {
                         modeDetail(mode)
                     } else {
                         Text(L("选择一个模式查看详情", "Select a mode to view details"))
@@ -105,7 +78,7 @@ struct ModesSettingsTab: View {
         .onAppear {
             selectedASRProvider = KeychainService.selectedASRProvider
             if selectedModeId == nil {
-                selectedModeId = customModes.first?.id
+                selectedModeId = modes.first?.id
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .asrProviderDidChange)) { note in
@@ -173,173 +146,7 @@ struct ModesSettingsTab: View {
         }
     }
 
-    // MARK: - Section Layout
-
-    private func sectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.system(size: 14, weight: .bold))
-            .foregroundStyle(TF.settingsText)
-            .padding(.bottom, 12)
-    }
-
-    private func sectionSpacer() -> some View {
-        VStack(spacing: 0) {
-            Spacer().frame(height: 20)
-            Divider()
-            Spacer().frame(height: 20)
-        }
-    }
-
-    // MARK: - Builtin Mode Card
-
-    private func builtinMeta(for mode: ProcessingMode) -> (icon: String, desc: String, badge: String) {
-        let isSupported = ASRProviderRegistry.supports(mode, for: selectedASRProvider)
-
-        if mode.id == ProcessingMode.directId {
-            return (
-                icon: "bolt.fill",
-                desc: L("流式语音识别，边说边出字。松开快捷键后立即将文本粘贴到光标位置，响应最快。适合日常短句、即时通讯和快速笔记。",
-                         "Streaming ASR, text appears as you speak. Pastes to cursor immediately on key release. Best for short phrases, messaging and quick notes."),
-                badge: L("低延迟，边说边出", "Low latency, real-time")
-            )
-        }
-
-        if mode.id == ProcessingMode.performanceId, !isSupported {
-            return (
-                icon: "waveform.badge.magnifyingglass",
-                desc: ASRProviderRegistry.unsupportedReason(for: mode, provider: selectedASRProvider)
-                    ?? L("当前引擎不支持该模式。", "This engine does not support this mode."),
-                badge: L("当前引擎不支持", "Unsupported for current engine")
-            )
-        }
-
-        return (
-            icon: "waveform.badge.magnifyingglass",
-            desc: L("录音结束后将完整音频提交识别引擎，获得更准确的全文结果。适合长段落口述、正式文档和需要高准确率的场景。",
-                     "Submits full audio after recording for more accurate results. Best for long dictation, formal documents and high-accuracy scenarios."),
-            badge: L("高准确率，整段识别", "High accuracy, full-segment")
-        )
-    }
-
-    private func builtinModeCard(_ mode: ProcessingMode) -> some View {
-        let meta = builtinMeta(for: mode)
-        let isSupported = ASRProviderRegistry.supports(mode, for: selectedASRProvider)
-
-        return VStack(alignment: .leading, spacing: 0) {
-            // Header: icon + name + badge
-            HStack(spacing: 6) {
-                Image(systemName: meta.icon)
-                    .font(.system(size: 13))
-                    .foregroundStyle(isSupported ? TF.settingsAccentGreen : TF.settingsTextTertiary)
-                Text(mode.name)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(TF.settingsText)
-                Text(L("内置", "Built-in"))
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(TF.settingsTextTertiary)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
-                    .background(Capsule().fill(TF.settingsCardAlt))
-            }
-            .padding(.bottom, 8)
-
-            // Description
-            Text(meta.desc)
-                .font(.system(size: 11))
-                .foregroundStyle(TF.settingsTextSecondary)
-                .lineSpacing(3)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.bottom, 8)
-
-            // Feature badge
-            HStack(spacing: 5) {
-                Image(systemName: meta.icon)
-                    .font(.system(size: 9))
-                    .foregroundStyle(isSupported ? TF.settingsAccentGreen : TF.settingsTextTertiary)
-                Text(meta.badge)
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(isSupported ? TF.settingsAccentGreen : TF.settingsTextTertiary)
-            }
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(
-                RoundedRectangle(cornerRadius: 4)
-                    .fill((isSupported ? TF.settingsAccentGreen : TF.settingsTextTertiary).opacity(0.1))
-            )
-
-            Spacer(minLength: 8)
-
-            // Hotkey row (same style as custom mode rows)
-            HStack(spacing: 4) {
-                if let kc = mode.hotkeyCode {
-                    Text(mode.hotkeyStyle == .hold ? L("按住录制", "Hold to record") : L("按下切换", "Toggle"))
-                        .font(.system(size: 9))
-                        .foregroundStyle(TF.settingsTextTertiary)
-                    Text(HotkeyRecorderView.keyDisplayName(keyCode: kc, modifiers: mode.hotkeyModifiers))
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(TF.settingsTextSecondary)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(TF.settingsCardAlt)
-                        )
-                    Button {
-                        if let idx = modes.firstIndex(where: { $0.id == mode.id }) {
-                            modes[idx].hotkeyCode = nil
-                            modes[idx].hotkeyModifiers = nil
-                            persistModes()
-                        }
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 7, weight: .bold))
-                            .foregroundStyle(TF.settingsTextTertiary)
-                            .frame(width: 14, height: 14)
-                            .background(Circle().fill(TF.settingsCardAlt))
-                    }
-                    .buttonStyle(.plain)
-                    .help(L("删除快捷键", "Remove hotkey"))
-                    .disabled(!isSupported)
-                } else {
-                    Text(L("未设置快捷键", "No hotkey"))
-                        .font(.system(size: 9))
-                        .foregroundStyle(TF.settingsTextTertiary.opacity(0.6))
-                }
-
-                Spacer()
-
-                Button {
-                    recordingTarget = RecordingTarget(
-                        id: mode.id, name: mode.name, currentStyle: mode.hotkeyStyle
-                    )
-                } label: {
-                    HStack(spacing: 3) {
-                        Image(systemName: "record.circle")
-                            .font(.system(size: 10))
-                        Text(L("按键录制", "Record key"))
-                            .font(.system(size: 10, weight: .medium))
-                    }
-                    .foregroundStyle(TF.settingsTextSecondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(
-                        RoundedRectangle(cornerRadius: 5)
-                            .fill(TF.settingsCardAlt)
-                    )
-                }
-                .buttonStyle(.plain)
-                .disabled(!isSupported)
-            }
-        }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(TF.settingsBg)
-        )
-        .opacity(isSupported ? 1 : 0.7)
-    }
-
-    // MARK: - Custom Mode Row
+    // MARK: - Mode Row
 
     private func modeRow(_ mode: ProcessingMode) -> some View {
         let isActive = selectedModeId == mode.id
@@ -357,9 +164,19 @@ struct ModesSettingsTab: View {
                 }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(mode.name)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(isActive ? .white : TF.settingsText)
+                HStack(spacing: 5) {
+                    Text(mode.name)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(isActive ? .white : TF.settingsText)
+                    if mode.isBuiltin {
+                        Text(L("内置", "BUILT-IN"))
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundStyle(isActive ? .white.opacity(0.5) : TF.settingsTextTertiary)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Capsule().fill(isActive ? Color.white.opacity(0.12) : TF.settingsCardAlt))
+                    }
+                }
 
                 if let kc = mode.hotkeyCode {
                     HStack(spacing: 4) {
@@ -464,19 +281,51 @@ struct ModesSettingsTab: View {
 
     // MARK: - Mode Detail
 
+    @ViewBuilder
     private func modeDetail(_ mode: ProcessingMode) -> some View {
-        ModeDetailInner(mode: mode) { updated in
-            if let idx = modes.firstIndex(where: { $0.id == updated.id }) {
-                modes[idx] = updated
-                persistModes()
+        if mode.isBuiltin {
+            builtinModeDetail(mode)
+        } else {
+            ModeDetailInner(mode: mode) { updated in
+                if let idx = modes.firstIndex(where: { $0.id == updated.id }) {
+                    modes[idx] = updated
+                    persistModes()
+                }
             }
+        }
+    }
+
+    private func builtinModeDetail(_ mode: ProcessingMode) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 6) {
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(TF.settingsAccentAmber)
+                Text(mode.name)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(TF.settingsText)
+                Text(L("内置", "BUILT-IN"))
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(TF.settingsTextTertiary)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(TF.settingsCardAlt))
+            }
+
+            Text(L("直接使用语音识别 API，识别完成后不做处理、直接粘贴。适合非正式场合、无需纠正口头表达的场景，输入流程更丝滑。",
+                     "Uses the ASR API directly, pastes raw output without post-processing. Best for informal contexts where oral expressions don't need correction."))
+                .font(.system(size: 12))
+                .foregroundStyle(TF.settingsTextSecondary)
+                .lineSpacing(3)
+
+            Spacer()
         }
     }
 
     // MARK: - Helpers
 
-    private var selectedCustomMode: ProcessingMode? {
-        customModes.first { $0.id == selectedModeId }
+    private var selectedMode: ProcessingMode? {
+        modes.first { $0.id == selectedModeId }
     }
 
     private func addMode() {
@@ -506,7 +355,7 @@ struct ModesSettingsTab: View {
         guard let mode = modes.first(where: { $0.id == id }), !mode.isBuiltin else { return }
         modes.removeAll { $0.id == id }
         if selectedModeId == id {
-            selectedModeId = customModes.first?.id
+            selectedModeId = modes.first?.id
         }
         persistModes()
     }

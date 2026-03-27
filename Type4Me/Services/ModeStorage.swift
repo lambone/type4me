@@ -38,13 +38,6 @@ struct ModeStorage {
                 d.hotkeyStyle = mode.hotkeyStyle
                 return d
             }
-            if mode.id == ProcessingMode.performanceId {
-                var p = ProcessingMode.performance
-                p.hotkeyCode = mode.hotkeyCode
-                p.hotkeyModifiers = mode.hotkeyModifiers
-                p.hotkeyStyle = mode.hotkeyStyle
-                return p
-            }
             if mode.id == ProcessingMode.smartDirectId {
                 return migrateDefaultMode(mode, fallback: .smartDirect)
             }

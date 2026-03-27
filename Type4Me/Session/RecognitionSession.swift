@@ -79,7 +79,6 @@ actor RecognitionSession {
 
     private var currentTranscript: RecognitionTranscript = .empty
     private var eventConsumptionTask: Task<Void, Never>?
-    private var activeFlashTask: Task<String?, Never>?
     private var hasEmittedReadyForCurrentSession = false
     private var audioChunkContinuation: AsyncStream<Data>.Continuation?
     private var audioChunkSenderTask: Task<Void, Never>?
@@ -238,10 +237,7 @@ actor RecognitionSession {
         markReadyIfNeeded()
         DebugFileLogger.log("session entered recording state (buffering, ASR connecting)")
 
-        // Lower system volume during recording if enabled
-        if UserDefaults.standard.bool(forKey: "tf_lowerVolumeOnRecord") {
-            SystemVolumeManager.lower(to: 0.2)
-        }
+        // Volume is lowered after start sound plays (handled in Type4MeApp)
 
         // ── Phase 2: Connect ASR (audio is already recording) ──
 
@@ -333,6 +329,8 @@ actor RecognitionSession {
         }
 
         let stopT0 = ContinuousClock.now
+        SystemVolumeManager.restore()  // Restore before stop sound plays
+        try? await Task.sleep(for: .milliseconds(50))  // Let OS apply volume change
         SoundFeedback.playStop()
         state = .finishing
 
@@ -346,8 +344,7 @@ actor RecognitionSession {
         // otherwise fire fresh LLM immediately.
         // Batch (non-streaming) providers skip early LLM — no real text available yet.
         cancelSpeculativeLLM()
-        let isPerformanceMode = currentMode.id == ProcessingMode.performanceId
-        let needsLLM = !currentMode.prompt.isEmpty && !isPerformanceMode
+        let needsLLM = !currentMode.prompt.isEmpty
         let provider = KeychainService.selectedASRProvider
         let canEarlyLLM = ASRProviderRegistry.capabilities(for: provider).isStreaming
         var earlyLLMTask: Task<String?, Never>?
@@ -380,33 +377,6 @@ actor RecognitionSession {
                             DebugFileLogger.log("stop: fresh LLM FAILED +\(ContinuousClock.now - stopT0) error=\(error)")
                             return nil
                         }
-                    }
-                }
-            }
-        }
-
-        // Dual-channel: kick off offline ASR immediately — runs concurrently with streaming
-        // ASR finalization below, so the round-trip overlaps the ≤1s streaming wait.
-        // Provider-agnostic: uses registry's offlineRecognize if the provider supports it.
-        activeFlashTask?.cancel()
-        activeFlashTask = nil
-        if isPerformanceMode,
-           let entry = ASRProviderRegistry.entry(for: provider),
-           entry.supportsDualChannel,
-           let offlineRecognize = entry.offlineRecognize,
-           let config = currentConfig {
-            let pcmData = audioEngine.getRecordedAudio()
-            if !pcmData.isEmpty {
-                activeFlashTask = Task {
-                    do {
-                        let text = try await offlineRecognize(pcmData, config)
-                        NSLog("[Session] Dual-channel offline ASR: %@", String(text.prefix(100)))
-                        DebugFileLogger.log("dual-channel offline result: \(text)")
-                        return text.isEmpty ? nil : text
-                    } catch {
-                        NSLog("[Session] Dual-channel offline ASR failed: %@, using streaming text", String(describing: error))
-                        DebugFileLogger.log("dual-channel offline failed: \(String(describing: error))")
-                        return nil
                     }
                 }
             }
@@ -467,17 +437,7 @@ actor RecognitionSession {
         hasEmittedReadyForCurrentSession = false
 
         // Combine confirmed segments + any trailing unconfirmed partial.
-        let streamingText = currentTranscript.displayText
-
-        // Dual-channel: await Flash ASR result (likely already in flight or done).
-        var effectiveText = streamingText
-        if let flash = activeFlashTask {
-            state = .postProcessing
-            if let flashText = await flash.value {
-                effectiveText = flashText
-            }
-            activeFlashTask = nil
-        }
+        let effectiveText = currentTranscript.displayText
         currentConfig = nil
 
         if !effectiveText.isEmpty {
@@ -741,8 +701,6 @@ actor RecognitionSession {
 
         eventConsumptionTask?.cancel()
         eventConsumptionTask = nil
-        activeFlashTask?.cancel()
-        activeFlashTask = nil
         resetSpeculativeLLM()
 
         audioEngine.stop()

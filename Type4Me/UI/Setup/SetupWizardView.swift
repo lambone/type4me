@@ -168,9 +168,6 @@ struct SetupWizardView: View {
         }
     }
 
-    private var providerCapabilitySummary: String {
-        ASRProviderRegistry.supportedModesSummary(for: selectedProvider)
-    }
 
     private var providerStep: some View {
         VStack(spacing: 24) {
@@ -205,10 +202,6 @@ struct SetupWizardView: View {
                     credentialValues = defaults
                 }
 
-                Text(providerCapabilitySummary)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 300, alignment: .leading)
 
                 // Dynamic credential fields
                 ForEach(currentFields) { field in

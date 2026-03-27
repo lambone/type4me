@@ -31,31 +31,11 @@ final class RecognitionSessionTests: XCTestCase {
         await session.setState(.idle)
     }
 
-    func testSwitchModeFallsBackToDirectWhenPerformanceModeIsUnsupported() async {
-        KeychainService.selectedASRProvider = .bailian
-        let session = RecognitionSession()
-
-        await session.switchMode(to: .performance)
-
-        let mode = await session.currentModeForTesting()
-        XCTAssertEqual(mode.id, ProcessingMode.directId)
-    }
-
-    func testSwitchModeKeepsPerformanceModeForVolcano() async {
+    func testSwitchModeAppliesToDirect() async {
         KeychainService.selectedASRProvider = .volcano
         let session = RecognitionSession()
 
-        await session.switchMode(to: .performance)
-
-        let mode = await session.currentModeForTesting()
-        XCTAssertEqual(mode.id, ProcessingMode.performanceId)
-    }
-
-    func testSwitchModeFallsBackToDirectForAssemblyAI() async {
-        KeychainService.selectedASRProvider = .assemblyai
-        let session = RecognitionSession()
-
-        await session.switchMode(to: .performance)
+        await session.switchMode(to: .direct)
 
         let mode = await session.currentModeForTesting()
         XCTAssertEqual(mode.id, ProcessingMode.directId)

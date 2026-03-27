@@ -1,49 +1,13 @@
 import Foundation
 
 struct ASRProviderCapabilities: Sendable, Equatable {
-    let supportsQuickMode: Bool
-    let supportsPerformanceMode: Bool
-    let performanceModeReason: String?
+    let isAvailable: Bool
     /// False for batch/REST providers that only produce results in endAudio().
-    /// When false, RecognitionSession must await endAudio() completion before reading text.
     let isStreaming: Bool
 
-    static let full = ASRProviderCapabilities(
-        supportsQuickMode: true,
-        supportsPerformanceMode: true,
-        performanceModeReason: nil,
-        isStreaming: true
-    )
-
-    static let quickOnly = ASRProviderCapabilities(
-        supportsQuickMode: true,
-        supportsPerformanceMode: false,
-        performanceModeReason: L(
-            "当前引擎仅支持实时识别，不支持整段识别。",
-            "This engine only supports real-time recognition, not full-audio recognition."
-        ),
-        isStreaming: true
-    )
-
-    static let batchOnly = ASRProviderCapabilities(
-        supportsQuickMode: true,
-        supportsPerformanceMode: false,
-        performanceModeReason: L(
-            "当前引擎仅支持整段识别，不支持实时识别。",
-            "This engine only supports full-audio recognition, not real-time recognition."
-        ),
-        isStreaming: false
-    )
-
-    static let unavailable = ASRProviderCapabilities(
-        supportsQuickMode: false,
-        supportsPerformanceMode: false,
-        performanceModeReason: L(
-            "当前引擎尚未提供可用的语音识别实现。",
-            "This engine does not currently provide an available speech recognition implementation."
-        ),
-        isStreaming: true
-    )
+    static let streaming = ASRProviderCapabilities(isAvailable: true, isStreaming: true)
+    static let batch = ASRProviderCapabilities(isAvailable: true, isStreaming: false)
+    static let unavailable = ASRProviderCapabilities(isAvailable: false, isStreaming: true)
 }
 
 enum ASRProviderRegistry {
@@ -53,22 +17,16 @@ enum ASRProviderRegistry {
         let createClient: (@Sendable () -> any SpeechRecognizer)?
         let capabilities: ASRProviderCapabilities
 
-        /// Factory for creating an offline (one-shot) recognizer for dual-channel mode.
-        let offlineRecognize: (@Sendable (Data, any ASRProviderConfig) async throws -> String)?
-
         var isAvailable: Bool { createClient != nil }
-        var supportsDualChannel: Bool { offlineRecognize != nil }
 
         init(
             configType: any ASRProviderConfig.Type,
             createClient: (@Sendable () -> any SpeechRecognizer)?,
-            capabilities: ASRProviderCapabilities = .unavailable,
-            offlineRecognize: (@Sendable (Data, any ASRProviderConfig) async throws -> String)? = nil
+            capabilities: ASRProviderCapabilities = .unavailable
         ) {
             self.configType = configType
             self.createClient = createClient
             self.capabilities = capabilities
-            self.offlineRecognize = offlineRecognize
         }
     }
 
@@ -77,33 +35,27 @@ enum ASRProviderRegistry {
             .volcano: ProviderEntry(
                 configType: VolcanoASRConfig.self,
                 createClient: { VolcASRClient() },
-                capabilities: .full,
-                offlineRecognize: { pcmData, config in
-                    guard let volcConfig = config as? VolcanoASRConfig else {
-                        throw VolcFlashASRError.missingCredentials
-                    }
-                    return try await VolcFlashASRClient.recognize(pcmData: pcmData, config: volcConfig)
-                }
+                capabilities: .streaming
             ),
             .deepgram: ProviderEntry(
                 configType: DeepgramASRConfig.self,
                 createClient: { DeepgramASRClient() },
-                capabilities: .quickOnly
+                capabilities: .streaming
             ),
             .assemblyai: ProviderEntry(
                 configType: AssemblyAIASRConfig.self,
                 createClient: { AssemblyAIASRClient() },
-                capabilities: .quickOnly
+                capabilities: .streaming
             ),
             .bailian: ProviderEntry(
                 configType: BailianASRConfig.self,
                 createClient: { BailianASRClient() },
-                capabilities: .quickOnly
+                capabilities: .streaming
             ),
-            .openai:  ProviderEntry(
+            .openai: ProviderEntry(
                 configType: OpenAIASRConfig.self,
                 createClient: { OpenAIASRClient() },
-                capabilities: .batchOnly
+                capabilities: .batch
             ),
             .azure:   ProviderEntry(configType: AzureASRConfig.self,   createClient: nil),
             .google:  ProviderEntry(configType: GoogleASRConfig.self,  createClient: nil),
@@ -117,13 +69,7 @@ enum ASRProviderRegistry {
         dict[.sherpa] = ProviderEntry(
             configType: SherpaASRConfig.self,
             createClient: { SherpaASRClient() },
-            capabilities: .full,
-            offlineRecognize: { pcmData, config in
-                guard let sherpaConfig = config as? SherpaASRConfig else {
-                    throw SherpaOfflineASRError.modelNotFound("Invalid config type")
-                }
-                return try await SherpaOfflineASRClient.recognize(pcmData: pcmData, config: sherpaConfig)
-            }
+            capabilities: .streaming
         )
         #else
         dict[.sherpa] = ProviderEntry(configType: SherpaASRConfig.self, createClient: nil)
@@ -148,14 +94,9 @@ enum ASRProviderRegistry {
     }
 
     static func supports(_ mode: ProcessingMode, for provider: ASRProvider) -> Bool {
-        let capabilities = capabilities(for: provider)
-        if mode.id == ProcessingMode.performanceId {
-            return capabilities.supportsPerformanceMode
-        }
         if mode.id == ProcessingMode.directId {
-            return capabilities.supportsQuickMode
+            return capabilities(for: provider).isAvailable
         }
-        // Custom/LLM modes are always allowed regardless of provider capabilities
         return true
     }
 
@@ -169,26 +110,9 @@ enum ASRProviderRegistry {
 
     static func unsupportedReason(for mode: ProcessingMode, provider: ASRProvider) -> String? {
         guard !supports(mode, for: provider) else { return nil }
-
-        if mode.id == ProcessingMode.performanceId {
-            return capabilities(for: provider).performanceModeReason
-        }
-
         return L(
             "当前引擎不可用于此模式。",
             "This engine is not available for this mode."
         )
-    }
-
-    static func supportedModesSummary(for provider: ASRProvider) -> String {
-        let capabilities = capabilities(for: provider)
-        switch (capabilities.supportsQuickMode, capabilities.supportsPerformanceMode) {
-        case (true, true):
-            return L("支持：快速模式、性能模式", "Supports: Quick Mode, Performance Mode")
-        case (true, false):
-            return L("支持：快速模式", "Supports: Quick Mode")
-        default:
-            return L("支持：无", "Supports: None")
-        }
     }
 }

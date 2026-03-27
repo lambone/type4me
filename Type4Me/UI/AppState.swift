@@ -97,22 +97,11 @@ struct ProcessingMode: Codable, Identifiable, Equatable, Hashable {
     static let directId = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
     static let smartDirectId = UUID(uuidString: "00000000-0000-0000-0000-000000000006")!
     static let translateId = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
-    static let performanceId = UUID(uuidString: "00000000-0000-0000-0000-000000000008")!
-
     static var direct: ProcessingMode {
         ProcessingMode(
             id: directId,
             name: L("快速模式", "Quick Mode"), prompt: "", isBuiltin: true,
             hotkeyCode: 62, hotkeyModifiers: 0, hotkeyStyle: .toggle
-        )
-    }
-
-    static var performance: ProcessingMode {
-        ProcessingMode(
-            id: performanceId,
-            name: L("性能模式", "Performance Mode"), prompt: "", isBuiltin: true,
-            processingLabel: L("识别中", "Recognizing"),
-            hotkeyStyle: .hold
         )
     }
 
@@ -186,8 +175,8 @@ struct ProcessingMode: Codable, Identifiable, Equatable, Hashable {
         )
     }
 
-    static var builtins: [ProcessingMode] { [.direct, .performance] }
-    static var defaults: [ProcessingMode] { [.direct, .performance, .formalWriting, .promptOptimize, .translate, .commandMode] }
+    static var builtins: [ProcessingMode] { [.direct] }
+    static var defaults: [ProcessingMode] { [.direct, .formalWriting, .promptOptimize, .translate, .commandMode] }
 }
 
 // MARK: - Audio Level (isolated from @Observable to avoid high-frequency view invalidation)

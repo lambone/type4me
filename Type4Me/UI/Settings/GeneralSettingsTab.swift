@@ -7,6 +7,22 @@ import ApplicationServices
 
 enum SettingsTestStatus: Equatable {
     case idle, testing, success, failed(String)
+
+    var buttonForeground: Color {
+        switch self {
+        case .idle, .testing: return TF.settingsText
+        case .success:        return TF.settingsAccentGreen
+        case .failed:         return TF.settingsAccentRed
+        }
+    }
+
+    var buttonBackground: Color {
+        switch self {
+        case .idle, .testing: return TF.settingsCardAlt
+        case .success:        return TF.settingsAccentGreen.opacity(0.12)
+        case .failed:         return TF.settingsAccentRed.opacity(0.12)
+        }
+    }
 }
 
 // MARK: - Shared UI Helpers
@@ -18,136 +34,239 @@ extension SettingsCardHelpers {
 
     func settingsGroupCard<Content: View>(
         _ title: String,
+        icon: String? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(TF.settingsTextTertiary)
-                .padding(.bottom, 10)
+            HStack(spacing: 6) {
+                if let icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(TF.settingsAccentAmber)
+                }
+                Text(title.uppercased())
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(1.2)
+                    .foregroundStyle(TF.settingsTextTertiary)
+            }
+            .padding(.bottom, 14)
 
             content()
         }
-        .padding(14)
+        .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 10)
                 .fill(TF.settingsBg)
         )
     }
 
     func settingsField(_ label: String, text: Binding<String>, prompt: String) -> some View {
-        HStack {
-            Text(label)
-                .font(.system(size: 13))
-                .foregroundStyle(TF.settingsText)
-                .frame(width: 100, alignment: .leading)
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.8)
+                .foregroundStyle(TF.settingsTextTertiary)
             FixedWidthTextField(text: text, placeholder: prompt)
-                .frame(height: 34)
+                .padding(.horizontal, 12)
+                .frame(height: 36)
+                .background(RoundedRectangle(cornerRadius: 8).fill(TF.settingsCardAlt))
         }
-        .frame(minHeight: 40)
         .padding(.vertical, 6)
     }
 
     func settingsPickerField(_ label: String, selection: Binding<String>, options: [FieldOption]) -> some View {
-        HStack {
-            Text(label)
-                .font(.system(size: 13))
-                .foregroundStyle(TF.settingsText)
-                .frame(width: 100, alignment: .leading)
-            Picker("", selection: selection) {
-                ForEach(options, id: \.value) { option in
-                    Text(option.label).tag(option.value)
-                }
-            }
-            .labelsHidden()
-            .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.8)
+                .foregroundStyle(TF.settingsTextTertiary)
+            settingsDropdown(
+                selection: selection,
+                options: options.map { ($0.value, $0.label) }
+            )
         }
-        .frame(minHeight: 40)
         .padding(.vertical, 6)
     }
 
     func settingsSecureField(_ label: String, text: Binding<String>, prompt: String) -> some View {
-        HStack {
-            Text(label)
-                .font(.system(size: 13))
-                .foregroundStyle(TF.settingsText)
-                .frame(width: 100, alignment: .leading)
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.8)
+                .foregroundStyle(TF.settingsTextTertiary)
             FixedWidthSecureField(text: text, placeholder: prompt)
-                .frame(height: 34)
+                .padding(.horizontal, 12)
+                .frame(height: 36)
+                .background(RoundedRectangle(cornerRadius: 8).fill(TF.settingsCardAlt))
         }
-        .frame(minHeight: 40)
         .padding(.vertical, 6)
     }
 
     func credentialSummaryCard(rows: [(String, String)]) -> some View {
-        VStack(spacing: 0) {
-            ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text(row.0)
-                        .font(.system(size: 13))
-                        .foregroundStyle(TF.settingsText)
-                    Spacer(minLength: 12)
-                    Text(row.1)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(TF.settingsTextSecondary)
-                        .multilineTextAlignment(.trailing)
-                        .lineLimit(2)
+        let pairedRows = stride(from: 0, to: rows.count, by: 2).map { i in
+            Array(rows[i..<min(i+2, rows.count)])
+        }
+        return VStack(spacing: 0) {
+            ForEach(Array(pairedRows.enumerated()), id: \.offset) { index, pair in
+                if index > 0 { SettingsDivider() }
+                HStack(alignment: .top, spacing: 16) {
+                    ForEach(Array(pair.enumerated()), id: \.offset) { _, item in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(item.0.uppercased())
+                                .font(.system(size: 10, weight: .semibold))
+                                .tracking(0.8)
+                                .foregroundStyle(TF.settingsTextTertiary)
+                            HStack {
+                                Text(item.1)
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(TF.settingsTextSecondary)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 12)
+                            .frame(height: 36)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(TF.settingsCardAlt)
+                            )
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    if pair.count == 1 {
+                        Spacer().frame(maxWidth: .infinity)
+                    }
                 }
-                .frame(minHeight: 40)
                 .padding(.vertical, 6)
-
-                if index < rows.count - 1 {
-                    Divider()
-                }
             }
         }
     }
 
-    func saveButton(action: @escaping () -> Void) -> some View {
-        Button(L("保存", "Save"), action: action)
+    // MARK: - Custom Controls
+
+    /// Custom dropdown that matches the design mockup (rounded rect + chevron).
+    func settingsDropdown(selection: Binding<String>, options: [(value: String, label: String)], icon: String? = nil) -> some View {
+        let currentLabel = options.first(where: { $0.value == selection.wrappedValue })?.label ?? selection.wrappedValue
+        return Menu {
+            ForEach(options, id: \.value) { option in
+                Button {
+                    selection.wrappedValue = option.value
+                } label: {
+                    if option.value == selection.wrappedValue {
+                        Label(option.label, systemImage: "checkmark")
+                    } else {
+                        Text(option.label)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                if let icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 12))
+                        .foregroundStyle(TF.settingsTextTertiary)
+                }
+                Text(currentLabel)
+                    .font(.system(size: 13))
+                    .foregroundStyle(TF.settingsText)
+                Spacer()
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(TF.settingsTextTertiary)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 36)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(TF.settingsCardAlt)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Custom segmented picker with dark selected pill.
+    func settingsSegmentedPicker(selection: Binding<String>, options: [(value: String, label: String)]) -> some View {
+        HStack(spacing: 0) {
+            ForEach(options, id: \.value) { option in
+                let isSelected = selection.wrappedValue == option.value
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        selection.wrappedValue = option.value
+                    }
+                } label: {
+                    Text(option.label)
+                        .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                        .foregroundStyle(isSelected ? .white : TF.settingsText)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(isSelected ? TF.settingsNavActive : .clear)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(TF.settingsCardAlt)
+        )
+    }
+
+    func primaryButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
             .buttonStyle(.plain)
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(.white)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 5)
-            .background(RoundedRectangle(cornerRadius: 6).fill(TF.settingsNavActive))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 7)
+            .background(RoundedRectangle(cornerRadius: 8).fill(TF.settingsAccentAmber))
     }
 
     func secondaryButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(title, action: action)
             .buttonStyle(.plain)
             .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(TF.settingsTextSecondary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 5)
-            .background(RoundedRectangle(cornerRadius: 6).fill(TF.settingsBg))
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(TF.settingsTextTertiary.opacity(0.2), lineWidth: 1)
-            )
+            .foregroundStyle(TF.settingsText)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 7)
+            .background(RoundedRectangle(cornerRadius: 8).fill(TF.settingsCardAlt))
     }
 
-    @ViewBuilder
-    func statusBadge(_ status: SettingsTestStatus) -> some View {
-        switch status {
-        case .idle:
-            EmptyView()
-        case .testing:
-            ProgressView()
-                .scaleEffect(0.6)
-                .frame(width: 16, height: 16)
-        case .success:
-            HStack(spacing: 4) {
-                Circle().fill(TF.settingsAccentGreen).frame(width: 6, height: 6)
-                Text(L("成功", "OK")).font(.system(size: 10)).foregroundStyle(TF.settingsAccentGreen)
+    func saveButton(action: @escaping () -> Void) -> some View {
+        primaryButton(L("保存", "Save"), action: action)
+    }
+
+    /// A "test connection" button that shows its own status inline.
+    func testButton(_ title: String, status: SettingsTestStatus, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                switch status {
+                case .idle:
+                    Text(title)
+                case .testing:
+                    ProgressView()
+                        .scaleEffect(0.5)
+                        .frame(width: 12, height: 12)
+                    Text(title)
+                case .success:
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 12))
+                    Text(L("成功", "OK"))
+                case .failed(let msg):
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                    Text(msg)
+                }
             }
-        case .failed(let msg):
-            HStack(spacing: 4) {
-                Circle().fill(TF.settingsAccentRed).frame(width: 6, height: 6)
-                Text(msg).font(.system(size: 10)).foregroundStyle(TF.settingsAccentRed)
-            }
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(status.buttonForeground)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 7)
+            .background(RoundedRectangle(cornerRadius: 8).fill(status.buttonBackground))
         }
+        .buttonStyle(.plain)
+        .disabled(status == .testing)
     }
 
     func maskedSecret(_ value: String) -> String {
@@ -207,26 +326,11 @@ struct ASRSettingsCard: View, SettingsCardHelpers {
         ASRProviderRegistry.entry(for: selectedASRProvider)?.isAvailable ?? false
     }
 
-    private var asrCapabilitySummary: String {
-        ASRProviderRegistry.supportedModesSummary(for: selectedASRProvider)
-    }
-
     // MARK: Body
 
     var body: some View {
-        settingsGroupCard(L("语音识别引擎", "Speech Recognition")) {
-            Text(L("用于默认的语音识别能力", "Powers the default speech-to-text capability"))
-                .font(.system(size: 10))
-                .foregroundStyle(TF.settingsTextTertiary)
-                .padding(.bottom, 6)
+        settingsGroupCard(L("语音识别引擎", "ASR Provider"), icon: "mic.fill") {
             asrProviderPicker
-            if isASRProviderAvailable {
-                Text(asrCapabilitySummary)
-                    .font(.system(size: 11))
-                    .foregroundStyle(TF.settingsTextTertiary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, 2)
-            }
             SettingsDivider()
 
             if selectedASRProvider.isLocal {
@@ -240,11 +344,7 @@ struct ASRSettingsCard: View, SettingsCardHelpers {
 
                 HStack(spacing: 8) {
                     Spacer()
-                    statusBadge(asrTestStatus)
-                    Button(L("测试连接", "Test")) { testASRConnection() }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(TF.settingsTextSecondary)
+                    testButton(L("测试连接", "Test"), status: asrTestStatus) { testASRConnection() }
                         .disabled(!hasASRCredentials || !isASRProviderAvailable)
                     if hasASRCredentials && !isEditingASR {
                         secondaryButton(L("修改", "Edit")) {
@@ -262,11 +362,11 @@ struct ASRSettingsCard: View, SettingsCardHelpers {
                                 loadASRCredentials()
                             }
                         }
-                        saveButton { saveASRCredentials() }
+                        primaryButton(L("保存", "Save")) { saveASRCredentials() }
                             .disabled(!hasASRCredentials)
                     }
                 }
-                .padding(.top, 10)
+                .padding(.top, 12)
             }
         }
         .task {
@@ -278,31 +378,26 @@ struct ASRSettingsCard: View, SettingsCardHelpers {
     // MARK: - Provider Picker
 
     private var asrProviderPicker: some View {
-        HStack {
-            Text(L("识别引擎", "ASR Engine"))
-                .font(.system(size: 13))
-                .foregroundStyle(TF.settingsText)
-                .frame(width: 100, alignment: .leading)
-            Picker("", selection: $selectedASRProvider) {
-                ForEach(ASRProvider.allCases.filter {
-                    $0.isLocal || (ASRProviderRegistry.entry(for: $0)?.isAvailable ?? false)
-                }, id: \.self) { provider in
-                    Text(provider.displayName).tag(provider)
+        VStack(alignment: .leading, spacing: 6) {
+            Text(L("识别引擎", "Provider").uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.8)
+                .foregroundStyle(TF.settingsTextTertiary)
+            HStack(spacing: 10) {
+                settingsDropdown(
+                    selection: Binding(
+                        get: { selectedASRProvider.rawValue },
+                        set: { if let p = ASRProvider(rawValue: $0) { selectedASRProvider = p } }
+                    ),
+                    options: ASRProvider.allCases
+                        .filter { $0.isLocal || (ASRProviderRegistry.entry(for: $0)?.isAvailable ?? false) }
+                        .map { ($0.rawValue, $0.displayName) }
+                )
+                if selectedASRProvider.isLocal && (modelDownloadStatus[selectedStreamingModel] ?? false) {
+                    testButton(L("测试模型", "Test Model"), status: asrTestStatus) { testLocalModel() }
                 }
             }
-            .labelsHidden()
-
-            if selectedASRProvider.isLocal && (modelDownloadStatus[selectedStreamingModel] ?? false) {
-                Spacer()
-                statusBadge(asrTestStatus)
-                Button(L("测试模型", "Test Model")) { testLocalModel() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(TF.settingsTextSecondary)
-                    .disabled(asrTestStatus == .testing)
-            }
         }
-        .frame(minHeight: 40)
         .padding(.vertical, 6)
         .onChange(of: selectedASRProvider) { _, newProvider in
             testTask?.cancel()
@@ -322,10 +417,22 @@ struct ASRSettingsCard: View, SettingsCardHelpers {
     // MARK: - Credential Fields
 
     private var dynamicCredentialFields: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(currentASRFields.enumerated()), id: \.element.id) { index, field in
+        let fields = currentASRFields
+        let rows = stride(from: 0, to: fields.count, by: 2).map { i in
+            Array(fields[i..<min(i+2, fields.count)])
+        }
+        return VStack(spacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
                 if index > 0 { SettingsDivider() }
-                credentialFieldRow(field)
+                HStack(alignment: .top, spacing: 16) {
+                    ForEach(row) { field in
+                        credentialFieldRow(field)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    if row.count == 1 {
+                        Spacer().frame(maxWidth: .infinity)
+                    }
+                }
             }
         }
     }
@@ -719,11 +826,7 @@ struct LLMSettingsCard: View, SettingsCardHelpers {
     // MARK: Body
 
     var body: some View {
-        settingsGroupCard(L("LLM 文本处理", "LLM Text Processing")) {
-            Text(L("用于自定义模式对输出的文本进行二次处理", "Post-processes transcribed text in custom modes"))
-                .font(.system(size: 10))
-                .foregroundStyle(TF.settingsTextTertiary)
-                .padding(.bottom, 6)
+        settingsGroupCard(L("LLM 文本处理", "LLM Settings"), icon: "gearshape.fill") {
             llmProviderPicker
             SettingsDivider()
 
@@ -733,18 +836,9 @@ struct LLMSettingsCard: View, SettingsCardHelpers {
                 dynamicCredentialFields
             }
 
-            Text(L("纠错、翻译、Prompt 优化等场景均通过此接口完成。", "Handles correction, translation, prompt optimization and more."))
-                .font(.system(size: 10))
-                .foregroundStyle(TF.settingsTextTertiary)
-                .padding(.top, 6)
-
             HStack(spacing: 8) {
                 Spacer()
-                statusBadge(llmTestStatus)
-                Button(L("测试连接", "Test")) { testLLMConnection() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(TF.settingsTextSecondary)
+                testButton(L("测试连接", "Test"), status: llmTestStatus) { testLLMConnection() }
                     .disabled(!hasLLMCredentials)
                 if hasLLMCredentials && !isEditingLLM {
                     secondaryButton(L("修改", "Edit")) {
@@ -762,11 +856,11 @@ struct LLMSettingsCard: View, SettingsCardHelpers {
                             loadLLMCredentials()
                         }
                     }
-                    saveButton { saveLLMCredentials() }
+                    primaryButton(L("保存", "Save")) { saveLLMCredentials() }
                         .disabled(!hasLLMCredentials)
                 }
             }
-            .padding(.top, 10)
+            .padding(.top, 12)
         }
         .task {
             loadLLMCredentials()
@@ -776,19 +870,19 @@ struct LLMSettingsCard: View, SettingsCardHelpers {
     // MARK: - Provider Picker
 
     private var llmProviderPicker: some View {
-        HStack {
-            Text(L("服务商", "Provider"))
-                .font(.system(size: 13))
-                .foregroundStyle(TF.settingsText)
-                .frame(width: 100, alignment: .leading)
-            Picker("", selection: $selectedLLMProvider) {
-                ForEach(LLMProvider.allCases, id: \.self) { provider in
-                    Text(provider.displayName).tag(provider)
-                }
-            }
-            .labelsHidden()
+        VStack(alignment: .leading, spacing: 6) {
+            Text(L("服务商", "Provider").uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.8)
+                .foregroundStyle(TF.settingsTextTertiary)
+            settingsDropdown(
+                selection: Binding(
+                    get: { selectedLLMProvider.rawValue },
+                    set: { if let p = LLMProvider(rawValue: $0) { selectedLLMProvider = p } }
+                ),
+                options: LLMProvider.allCases.map { ($0.rawValue, $0.displayName) }
+            )
         }
-        .frame(minHeight: 40)
         .padding(.vertical, 6)
         .onChange(of: selectedLLMProvider) { _, newProvider in
             testTask?.cancel()
@@ -801,10 +895,22 @@ struct LLMSettingsCard: View, SettingsCardHelpers {
     // MARK: - Credential Fields
 
     private var dynamicCredentialFields: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(currentLLMFields.enumerated()), id: \.element.id) { index, field in
+        let fields = currentLLMFields
+        let rows = stride(from: 0, to: fields.count, by: 2).map { i in
+            Array(fields[i..<min(i+2, fields.count)])
+        }
+        return VStack(spacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
                 if index > 0 { SettingsDivider() }
-                credentialFieldRow(field)
+                HStack(alignment: .top, spacing: 16) {
+                    ForEach(row) { field in
+                        credentialFieldRow(field)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    if row.count == 1 {
+                        Spacer().frame(maxWidth: .infinity)
+                    }
+                }
             }
         }
     }
@@ -937,7 +1043,7 @@ struct GeneralSettingsTab: View, SettingsCardHelpers {
 
     @AppStorage("tf_startSound") private var startSound = StartSoundStyle.chime.rawValue
     @AppStorage("tf_launchAtLogin") private var launchAtLogin = true
-    @AppStorage("tf_lowerVolumeOnRecord") private var lowerVolumeOnRecord = false
+    @AppStorage("tf_volumeReduction") private var volumeReduction = -1
     @AppStorage("tf_visualStyle") private var visualStyle = "timeline"
     @AppStorage("tf_language") private var language = AppLanguage.systemDefault
 
@@ -957,77 +1063,70 @@ struct GeneralSettingsTab: View, SettingsCardHelpers {
             )
 
             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            // MODULE 1: 全局设置
+            // MODULE 1: 全局设置 (全宽卡片，内部双列)
             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            moduleHeader(L("全局设置", "Global"))
 
-            twoColumnLayout {
-                settingsGroupCard(L("偏好", "Preferences")) {
+            settingsGroupCard(L("偏好", "Global Preferences"), icon: "slider.horizontal.3") {
+                // Row 1: 三等分 - 提示音 / 录音动效 / 界面语言
+                HStack(alignment: .top, spacing: 16) {
                     startSoundRow
-                    SettingsDivider()
-                    settingsToggleRow(L("开机自动启动", "Launch at login"), isOn: $launchAtLogin)
-                    SettingsDivider()
-                    settingsToggleRow(L("录音时降低系统音量", "Lower volume while recording"), isOn: $lowerVolumeOnRecord)
-                    SettingsDivider()
+                        .frame(maxWidth: .infinity)
                     visualStyleRow
-                    SettingsDivider()
+                        .frame(maxWidth: .infinity)
                     languageRow
+                        .frame(maxWidth: .infinity)
                 }
-            } right: {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Text(L("系统权限", "Permissions"))
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(TF.settingsTextTertiary)
-                        Spacer()
-                        Button { checkPermissions() } label: {
-                            Label(L("刷新", "Refresh"), systemImage: "arrow.clockwise")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(TF.settingsTextSecondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.bottom, 10)
 
-                    HStack(spacing: 8) {
-                        permissionBlock(
-                            icon: "mic.fill", name: L("麦克风", "Microphone"), granted: hasMic
-                        ) {
-                            AVCaptureDevice.requestAccess(for: .audio) { granted in
-                                Task { @MainActor in hasMic = granted }
+                SettingsDivider()
+
+                // Row 2: 两等分 - 开机启动 / 降低音量
+                HStack(alignment: .top, spacing: 16) {
+                    launchAtLoginRow
+                        .frame(maxWidth: .infinity)
+                    volumeReductionRow
+                        .frame(maxWidth: .infinity)
+                }
+            }
+
+            Spacer().frame(height: 16)
+
+            settingsGroupCard(L("系统权限", "Permissions"), icon: "lock.shield.fill") {
+                HStack(spacing: 12) {
+                    permissionBlock(
+                        icon: "mic.fill", name: L("麦克风", "Microphone"), granted: hasMic
+                    ) {
+                        AVCaptureDevice.requestAccess(for: .audio) { granted in
+                            Task { @MainActor in
+                                hasMic = granted
+                                if !granted {
+                                    NSWorkspace.shared.open(
+                                        URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")!
+                                    )
+                                }
                             }
                         }
-
-                        permissionBlock(
-                            icon: "accessibility", name: L("辅助功能", "Accessibility"), granted: hasAccessibility
-                        ) {
-                            NSWorkspace.shared.open(
-                                URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
-                            )
-                        }
                     }
-                    .frame(maxHeight: .infinity)
+
+                    permissionBlock(
+                        icon: "accessibility", name: L("辅助功能", "Accessibility"), granted: hasAccessibility
+                    ) {
+                        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+                        hasAccessibility = AXIsProcessTrustedWithOptions(options)
+                    }
                 }
-                .padding(14)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(TF.settingsBg)
-                )
             }
 
-            moduleSpacer()
+            Spacer().frame(height: 16)
 
             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            // MODULE 2: API 设置
+            // MODULE 2: API 设置 (上下结构)
             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            moduleHeader(L("API 设置", "API Settings"))
 
-            twoColumnLayout {
-                ASRSettingsCard()
-            } right: {
-                LLMSettingsCard()
-            }
+            ASRSettingsCard()
+
+            Spacer().frame(height: 16)
+
+            LLMSettingsCard()
 
         }
         .task {
@@ -1079,11 +1178,18 @@ struct GeneralSettingsTab: View, SettingsCardHelpers {
 
     // MARK: - Row Builders
 
-    private func settingsToggleRow(_ label: String, isOn: Binding<Bool>) -> some View {
+    private func settingsToggleRow(_ label: String, subtitle: String? = nil, isOn: Binding<Bool>) -> some View {
         HStack {
-            Text(label)
-                .font(.system(size: 13))
-                .foregroundStyle(TF.settingsText)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.system(size: 13))
+                    .foregroundStyle(TF.settingsText)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 10))
+                        .foregroundStyle(TF.settingsTextTertiary)
+                }
+            }
             Spacer()
             Toggle("", isOn: isOn)
                 .labelsHidden()
@@ -1095,62 +1201,99 @@ struct GeneralSettingsTab: View, SettingsCardHelpers {
     }
 
     private var startSoundRow: some View {
-        HStack {
-            Text(L("提示音", "Start sound"))
-                .font(.system(size: 13))
-                .foregroundStyle(TF.settingsText)
-            Spacer()
-            Picker("", selection: $startSound) {
-                ForEach(StartSoundStyle.allCases, id: \.rawValue) { style in
-                    Text(style.displayName).tag(style.rawValue)
-                }
-            }
-            .labelsHidden()
-            .fixedSize()
+        VStack(alignment: .leading, spacing: 6) {
+            Text(L("提示音", "Start Sound").uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.8)
+                .foregroundStyle(TF.settingsTextTertiary)
+            settingsDropdown(
+                selection: $startSound,
+                options: StartSoundStyle.allCases.map { ($0.rawValue, $0.displayName) }
+            )
             .onChange(of: startSound) { _, newValue in
                 if let style = StartSoundStyle(rawValue: newValue) {
                     SoundFeedback.previewStartSound(style)
                 }
             }
         }
-        .frame(minHeight: 40)
         .padding(.vertical, 6)
     }
 
     private var visualStyleRow: some View {
-        HStack {
-            Text(L("录音动效", "Visual style"))
-                .font(.system(size: 13))
-                .foregroundStyle(TF.settingsText)
-            Spacer()
-            Picker("", selection: $visualStyle) {
-                Text(L("线条", "Lines")).tag("classic")
-                Text(L("粒子云", "Particles")).tag("dual")
-                Text(L("电平", "Level")).tag("timeline")
-            }
-            .labelsHidden()
-            .pickerStyle(.segmented)
-            .fixedSize()
+        VStack(alignment: .leading, spacing: 6) {
+            Text(L("录音动效", "Visual Style").uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.8)
+                .foregroundStyle(TF.settingsTextTertiary)
+            settingsSegmentedPicker(
+                selection: $visualStyle,
+                options: [
+                    ("classic", L("线条", "Lines")),
+                    ("dual", L("粒子云", "Blocks")),
+                    ("timeline", L("电平", "Minimal")),
+                ]
+            )
         }
-        .frame(minHeight: 40)
+        .padding(.vertical, 6)
+    }
+
+    private var launchAtLoginRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(L("开机自动启动", "Launch at Startup").uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.8)
+                .foregroundStyle(TF.settingsTextTertiary)
+            settingsDropdown(
+                selection: Binding(
+                    get: { launchAtLogin ? "on" : "off" },
+                    set: { launchAtLogin = $0 == "on" }
+                ),
+                options: [
+                    ("on", L("开启", "On")),
+                    ("off", L("关闭", "Off")),
+                ]
+            )
+        }
+        .padding(.vertical, 6)
+    }
+
+    private var volumeReductionRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(L("录音时降低音量", "Lower System Volume").uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.8)
+                .foregroundStyle(TF.settingsTextTertiary)
+            settingsDropdown(
+                selection: Binding(
+                    get: { String(volumeReduction) },
+                    set: { volumeReduction = Int($0) ?? -1 }
+                ),
+                options: [
+                    ("-1", L("不降低", "Off")),
+                    ("50", "50%"),
+                    ("40", "40%"),
+                    ("30", "30%"),
+                    ("20", "20%"),
+                    ("10", "10%"),
+                    ("0", L("静音", "Mute")),
+                ]
+            )
+        }
         .padding(.vertical, 6)
     }
 
     private var languageRow: some View {
-        HStack {
-            Text(L("界面语言", "Language"))
-                .font(.system(size: 13))
-                .foregroundStyle(TF.settingsText)
-            Spacer()
-            Picker("", selection: $language) {
-                ForEach(AppLanguage.allCases, id: \.rawValue) { lang in
-                    Text(lang.displayName).tag(lang.rawValue)
-                }
-            }
-            .labelsHidden()
-            .fixedSize()
+        VStack(alignment: .leading, spacing: 6) {
+            Text(L("界面语言", "Primary Language").uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.8)
+                .foregroundStyle(TF.settingsTextTertiary)
+            settingsDropdown(
+                selection: $language,
+                options: AppLanguage.allCases.map { ($0.rawValue, $0.displayName) },
+                icon: "globe"
+            )
         }
-        .frame(minHeight: 40)
         .padding(.vertical, 6)
     }
 
@@ -1162,36 +1305,46 @@ struct GeneralSettingsTab: View, SettingsCardHelpers {
         granted: Bool,
         action: @escaping () -> Void
     ) -> some View {
-        VStack(spacing: 8) {
+        HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 24))
-                .foregroundStyle(granted ? TF.settingsAccentGreen : TF.settingsTextTertiary)
-                .frame(height: 34)
+                .font(.system(size: 18))
+                .foregroundStyle(.white)
+                .frame(width: 36, height: 36)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(granted ? TF.settingsAccentGreen : TF.settingsTextTertiary)
+                )
 
             Text(name)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(TF.settingsText)
 
+            Spacer()
+
             if granted {
                 HStack(spacing: 4) {
-                    Circle().fill(TF.settingsAccentGreen).frame(width: 6, height: 6)
-                    Text(L("已授权", "Granted"))
-                        .font(.system(size: 11))
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(TF.settingsAccentGreen)
+                    Text(L("已授权", "Authorized"))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(TF.settingsAccentGreen)
                 }
             } else {
-                Button(L("授权", "Grant")) { action() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .background(RoundedRectangle(cornerRadius: 4).fill(TF.settingsAccentAmber))
+                Button { action() } label: {
+                    Text(L("授权", "Grant"))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 5)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(TF.settingsAccentAmber))
+                }
+                .buttonStyle(.plain)
             }
         }
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, minHeight: 90, maxHeight: .infinity)
-        .background(RoundedRectangle(cornerRadius: 6).fill(TF.settingsCardAlt))
+        .padding(14)
+        .frame(maxWidth: .infinity)
+        .background(RoundedRectangle(cornerRadius: 8).fill(TF.settingsCardAlt))
     }
 
     // MARK: - Permissions

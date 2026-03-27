@@ -93,6 +93,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                             NSLog("[Type4Me] playStart firing")
                             DebugFileLogger.log("playStart firing")
                             SoundFeedback.playStart()
+                            // Lower volume after start sound finishes playing
+                            let targetVolumePercent = UserDefaults.standard.integer(forKey: "tf_volumeReduction")
+                            if targetVolumePercent >= 0 {
+                                try? await Task.sleep(for: .milliseconds(500))
+                                guard appState.barPhase == .recording else { return }
+                                SystemVolumeManager.lower(to: Float(targetVolumePercent) / 100.0)
+                            }
                         }
                     case .transcript(let transcript):
                         appState.setLiveTranscript(transcript)

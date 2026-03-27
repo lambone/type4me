@@ -1,29 +1,29 @@
 import SwiftUI
 import AppKit
 
-// Shared styling constants matching TF design system.
+// MARK: - Shared Style
+
 private enum SettingsFieldStyle {
-    static let bgColor = NSColor(red: 0.95, green: 0.92, blue: 0.88, alpha: 1)
     static let textColor = NSColor(red: 0.10, green: 0.10, blue: 0.10, alpha: 1)
     static let placeholderColor = NSColor(red: 0.42, green: 0.42, blue: 0.42, alpha: 1)
     static let cursorColor = NSColor(red: 0.25, green: 0.25, blue: 0.25, alpha: 1)
-    static let borderColor = NSColor(red: 0.42, green: 0.42, blue: 0.42, alpha: 0.2)
-    static let padding = NSSize(width: 8, height: 0)
 
+    /// Configure a bare NSTextField: transparent, no border, just text editing.
     static func applyCommon(to field: NSTextField, placeholder: String) {
-        field.font = .systemFont(ofSize: 12)
+        // Prevent cursor from changing outside visible bounds
+        field.wantsLayer = true
+        field.layer?.masksToBounds = true
+        field.font = .systemFont(ofSize: 13)
         field.isBordered = false
         field.isBezeled = false
-        field.drawsBackground = true
-        field.backgroundColor = bgColor
+        field.drawsBackground = false
         field.textColor = textColor
         field.focusRingType = .none
         field.usesSingleLineMode = true
         field.maximumNumberOfLines = 1
-        field.wantsLayer = true
-        field.layer?.cornerRadius = 6
-        field.layer?.borderWidth = 1
-        field.layer?.borderColor = borderColor.cgColor
+        field.cell?.isScrollable = true
+        field.cell?.wraps = false
+        field.cell?.lineBreakMode = .byTruncatingTail
 
         let style = NSMutableParagraphStyle()
         style.lineBreakMode = .byTruncatingTail
@@ -31,73 +31,32 @@ private enum SettingsFieldStyle {
             string: placeholder,
             attributes: [
                 .foregroundColor: placeholderColor,
-                .font: NSFont.systemFont(ofSize: 12),
+                .font: NSFont.systemFont(ofSize: 13),
                 .paragraphStyle: style,
             ]
         )
 
         field.setContentHuggingPriority(.defaultLow, for: .horizontal)
         field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
-        // Cell-level settings
-        field.cell?.isScrollable = true
-        field.cell?.wraps = false
-        field.cell?.lineBreakMode = .byTruncatingTail
     }
 }
 
-// MARK: - Padded Cell Subclasses
+// MARK: - NSTextField subclass (cursor color + no intrinsic width)
 
-/// Adds horizontal padding and vertically centers text.
-private class PaddedTextFieldCell: NSTextFieldCell {
-    private func paddedRect(_ rect: NSRect) -> NSRect {
-        let textHeight = super.drawingRect(forBounds: rect).height
-        let y = max(0, (rect.height - textHeight) / 2 + 7)
-        return NSRect(x: rect.origin.x + 8, y: rect.origin.y + y,
-                      width: rect.width - 16, height: textHeight)
-    }
-    override func drawingRect(forBounds rect: NSRect) -> NSRect { paddedRect(rect) }
-    override func titleRect(forBounds rect: NSRect) -> NSRect { paddedRect(rect) }
-    override func edit(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate: Any?, event: NSEvent?) {
-        super.edit(withFrame: paddedRect(rect), in: controlView, editor: textObj, delegate: delegate, event: event)
-    }
-    override func select(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate: Any?, start selStart: Int, length selLength: Int) {
-        super.select(withFrame: paddedRect(rect), in: controlView, editor: textObj, delegate: delegate, start: selStart, length: selLength)
-    }
-}
-
-/// Same padding for secure text fields.
-private class PaddedSecureTextFieldCell: NSSecureTextFieldCell {
-    private func paddedRect(_ rect: NSRect) -> NSRect {
-        let textHeight = super.drawingRect(forBounds: rect).height
-        let y = max(0, (rect.height - textHeight) / 2 + 7)
-        return NSRect(x: rect.origin.x + 8, y: rect.origin.y + y,
-                      width: rect.width - 16, height: textHeight)
-    }
-    override func drawingRect(forBounds rect: NSRect) -> NSRect { paddedRect(rect) }
-    override func titleRect(forBounds rect: NSRect) -> NSRect { paddedRect(rect) }
-    override func edit(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate: Any?, event: NSEvent?) {
-        super.edit(withFrame: paddedRect(rect), in: controlView, editor: textObj, delegate: delegate, event: event)
-    }
-    override func select(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate: Any?, start selStart: Int, length selLength: Int) {
-        super.select(withFrame: paddedRect(rect), in: controlView, editor: textObj, delegate: delegate, start: selStart, length: selLength)
-    }
-}
-
-// MARK: - NSTextField Subclasses
-
-/// NSTextField that uses PaddedTextFieldCell and custom cursor color.
-/// Overrides intrinsicContentSize so SwiftUI respects the desired height.
 private class SettingsNSTextField: NSTextField {
-    override class var cellClass: AnyClass? {
-        get { PaddedTextFieldCell.self }
-        set { }
-    }
-
     override var intrinsicContentSize: NSSize {
-        NSSize(width: NSView.noIntrinsicMetric, height: 28)
+        NSSize(width: NSView.noIntrinsicMetric, height: super.intrinsicContentSize.height)
     }
-
+    override func resetCursorRects() {
+        // Only show I-beam cursor when the field is editable and visible
+        if isEditable && !isHidden && alphaValue > 0 {
+            addCursorRect(bounds, cursor: .iBeam)
+        }
+    }
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard isEditable && !isHidden && alphaValue > 0 else { return nil }
+        return super.hitTest(point)
+    }
     override func becomeFirstResponder() -> Bool {
         let result = super.becomeFirstResponder()
         if let editor = currentEditor() as? NSTextView {
@@ -107,17 +66,19 @@ private class SettingsNSTextField: NSTextField {
     }
 }
 
-/// NSSecureTextField that uses PaddedSecureTextFieldCell and custom cursor color.
 private class SettingsNSSecureTextField: NSSecureTextField {
-    override class var cellClass: AnyClass? {
-        get { PaddedSecureTextFieldCell.self }
-        set { }
-    }
-
     override var intrinsicContentSize: NSSize {
-        NSSize(width: NSView.noIntrinsicMetric, height: 28)
+        NSSize(width: NSView.noIntrinsicMetric, height: super.intrinsicContentSize.height)
     }
-
+    override func resetCursorRects() {
+        if isEditable && !isHidden && alphaValue > 0 {
+            addCursorRect(bounds, cursor: .iBeam)
+        }
+    }
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard isEditable && !isHidden && alphaValue > 0 else { return nil }
+        return super.hitTest(point)
+    }
     override func becomeFirstResponder() -> Bool {
         let result = super.becomeFirstResponder()
         if let editor = currentEditor() as? NSTextView {
@@ -127,9 +88,10 @@ private class SettingsNSSecureTextField: NSSecureTextField {
     }
 }
 
-// MARK: - SwiftUI Wrappers
+// MARK: - SwiftUI Wrappers (bare text field, no visual styling)
 
-/// A single-line NSTextField wrapper that never expands its parent layout.
+/// Bare NSTextField wrapper. All visual styling (background, corner radius, padding)
+/// is applied via SwiftUI modifiers in settingsField().
 struct FixedWidthTextField: NSViewRepresentable {
     @Binding var text: String
     var placeholder: String
@@ -157,7 +119,7 @@ struct FixedWidthTextField: NSViewRepresentable {
     }
 }
 
-/// A single-line NSSecureTextField wrapper that never expands its parent layout.
+/// Bare NSSecureTextField wrapper.
 struct FixedWidthSecureField: NSViewRepresentable {
     @Binding var text: String
     var placeholder: String

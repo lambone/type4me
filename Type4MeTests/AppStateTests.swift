@@ -110,16 +110,6 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(appState.feedbackMessage, "找不到麦克风")
     }
 
-    func testReconcileCurrentModeFallsBackToDirectForUnsupportedPerformanceProvider() {
-        let appState = AppState()
-        let direct = appState.availableModes.first(where: { $0.id == ProcessingMode.directId }) ?? .direct
-        appState.currentMode = .performance
-
-        appState.reconcileCurrentMode(for: .bailian)
-
-        XCTAssertEqual(appState.currentMode.id, direct.id)
-    }
-
     func testReconcileCurrentModeKeepsSupportedCustomModeForQuickOnlyProvider() {
         let appState = AppState()
         let customMode = ProcessingMode(

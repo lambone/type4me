@@ -15,7 +15,6 @@ final class BailianASRConfigTests: XCTestCase {
 
         XCTAssertEqual(config.apiKey, "sk-test-key")
         XCTAssertEqual(config.model, BailianASRConfig.defaultModel)
-        XCTAssertTrue(config.deviceId.hasPrefix("type4me-"))
         XCTAssertEqual(config.languageHint, "")
         XCTAssertEqual(config.vocabularyId, "")
         XCTAssertTrue(config.isValid)
@@ -29,14 +28,12 @@ final class BailianASRConfigTests: XCTestCase {
         let config = try XCTUnwrap(BailianASRConfig(credentials: [
             "apiKey": "sk-test-key",
             "model": "fun-asr-realtime-2025-11-07",
-            "deviceId": "custom-device",
             "languageHint": "ja",
             "vocabularyId": "vocab-123",
         ]))
 
         XCTAssertEqual(config.toCredentials()["apiKey"], "sk-test-key")
         XCTAssertEqual(config.toCredentials()["model"], "fun-asr-realtime-2025-11-07")
-        XCTAssertEqual(config.toCredentials()["deviceId"], "custom-device")
         XCTAssertEqual(config.toCredentials()["languageHint"], "ja")
         XCTAssertEqual(config.toCredentials()["vocabularyId"], "vocab-123")
     }

@@ -59,15 +59,14 @@ final class ModeStorageTests: XCTestCase {
         XCTAssertEqual(translate?.prompt, ProcessingMode.translate.prompt)
     }
 
-    func testDeletedDefaultModesAreNotReinserted_exceptAutoInjected() throws {
+    func testDeletedDefaultModesAreNotReinserted() throws {
         let storage = ModeStorage(fileURL: testURL)
         try storage.save([ProcessingMode.direct])
 
         let loaded = storage.load()
 
-        // direct is kept, performance is auto-injected
+        // direct is kept
         XCTAssertTrue(loaded.contains { $0.id == ProcessingMode.direct.id })
-        XCTAssertTrue(loaded.contains { $0.id == ProcessingMode.performance.id })
         // smartDirect and translate were removed and not re-injected
         XCTAssertFalse(loaded.contains { $0.id == ProcessingMode.smartDirect.id })
         XCTAssertFalse(loaded.contains { $0.id == ProcessingMode.translate.id })
