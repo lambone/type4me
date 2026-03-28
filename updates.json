@@ -1,8 +1,8 @@
 {
-  "latest": "1.4.0",
+  "latest": "1.3.3",
   "releases": [
     {
-      "version": "1.4.0",
+      "version": "1.3.3",
       "date": "2026-03-28",
       "notes": "- 新增 Soniox 流式识别引擎 (contributed by @zebangeth)\n- ESC 取消粘贴，内容仍存入剪贴板和识别历史 (contributed by @ShaneLevs)\n- 新增键盘敲击风格录音提示音 (contributed by @ShaneLevs)\n- LLM 处理失败时回退到原始文本，不再丢弃内容 (contributed by @rickyyyxu)\n- OpenAI 引擎标签从 \"OpenAI Whisper\" 改为 \"OpenAI\" (contributed by @zebangeth)"
     },
