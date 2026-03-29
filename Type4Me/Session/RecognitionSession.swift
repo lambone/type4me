@@ -198,7 +198,7 @@ actor RecognitionSession {
         self.asrClient = client
 
         // Load hotwords
-        let hotwords = HotwordStorage.load()
+        let hotwords = HotwordStorage.loadEffective()
         let biasSettings = ASRBiasSettingsStorage.load()
         let needsLLM = !effectiveMode.prompt.isEmpty
         let requestOptions = ASRRequestOptions(
@@ -393,7 +393,7 @@ actor RecognitionSession {
         if needsLLM && canEarlyLLM {
             var earlyText = currentTranscript.composedText
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            earlyText = SnippetStorage.apply(to: earlyText)
+            earlyText = SnippetStorage.applyEffective(to: earlyText)
             DebugFileLogger.log("stop: needsLLM=true mode=\(currentMode.name) text=\(earlyText.count)chars specMatch=\(earlyText == speculativeLLMText)")
             if !earlyText.isEmpty {
                 if earlyText == speculativeLLMText, let specTask = speculativeLLMTask {
@@ -494,7 +494,7 @@ actor RecognitionSession {
             var llmFailed = false
 
             // Apply snippet replacements before LLM (e.g. "我的邮箱" → actual email)
-            finalText = SnippetStorage.apply(to: finalText)
+            finalText = SnippetStorage.applyEffective(to: finalText)
 
             // LLM post-processing: prefer early result (fired at stop time),
             // fall back to synchronous call for very short recordings where
@@ -740,7 +740,7 @@ actor RecognitionSession {
     private func fireSpeculativeLLM() async {
         var text = currentTranscript.composedText
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        text = SnippetStorage.apply(to: text)
+        text = SnippetStorage.applyEffective(to: text)
         guard !text.isEmpty, text != speculativeLLMText else { return }
         guard let llmConfig = KeychainService.loadLLMConfig() else { return }
 

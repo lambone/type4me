@@ -33,6 +33,17 @@ struct VocabularyTab: View {
                 .foregroundStyle(TF.settingsTextTertiary)
                 .padding(.bottom, 12)
 
+            HStack(spacing: 6) {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 9))
+                    .foregroundStyle(TF.settingsTextTertiary)
+                Text(L("内置 \(HotwordStorage.builtinHotwords.count) 条通用热词",
+                       "\(HotwordStorage.builtinHotwords.count) built-in hotwords"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(TF.settingsTextTertiary)
+            }
+            .padding(.bottom, 8)
+
             WrappingHStack(spacing: 6) {
                 ForEach(hotwords, id: \.self) { word in
                     hotwordTag(word)
@@ -71,6 +82,17 @@ struct VocabularyTab: View {
                 .font(.system(size: 11))
                 .foregroundStyle(TF.settingsTextTertiary)
                 .padding(.bottom, 12)
+
+            HStack(spacing: 6) {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 9))
+                    .foregroundStyle(TF.settingsTextTertiary)
+                Text(L("内置 \(SnippetStorage.builtinSnippets.count) 条纠正规则",
+                       "\(SnippetStorage.builtinSnippets.count) built-in correction rules"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(TF.settingsTextTertiary)
+            }
+            .padding(.bottom, 8)
 
             // Header
             HStack(spacing: 0) {

@@ -159,7 +159,9 @@ actor SenseVoiceServerManager {
         }
 
         // Model path: bundled or ModelScope cache
-        let modelPath = resolveQwen3ModelPath()
+        guard let modelPath = resolveQwen3ModelPath() else {
+            throw ServerError.modelNotFound
+        }
         logger.info("Qwen3-ASR model: \(modelPath)")
 
         // Hotwords file (same as SenseVoice)
@@ -181,7 +183,7 @@ actor SenseVoiceServerManager {
         logger.info("Starting Qwen3-ASR server")
     }
 
-    private func resolveQwen3ModelPath() -> String {
+    private func resolveQwen3ModelPath() -> String? {
         // 1. Bundled in app (production DMG)
         let bundled = Bundle.main.resourceURL?
             .appendingPathComponent("Models")
@@ -202,8 +204,7 @@ actor SenseVoiceServerManager {
         if FileManager.default.fileExists(atPath: cache06) { return cache06 }
         let cache17 = NSHomeDirectory() + "/.cache/modelscope/hub/models/Qwen/Qwen3-ASR-1.7B"
         if FileManager.default.fileExists(atPath: cache17) { return cache17 }
-        // Last resort
-        return cache06
+        return nil
     }
 
     // MARK: - SenseVoice (Intel fallback)
@@ -338,6 +339,7 @@ actor SenseVoiceServerManager {
     enum ServerError: Error, LocalizedError {
         case serverNotFound
         case venvNotFound
+        case modelNotFound
         case launchFailed(Error)
         case portDiscoveryFailed
 
@@ -347,6 +349,8 @@ actor SenseVoiceServerManager {
                 return L("SenseVoice 服务未找到", "SenseVoice server not found")
             case .venvNotFound:
                 return L("Python 环境未配置", "Python environment not configured")
+            case .modelNotFound:
+                return L("本地 ASR 模型未找到，请先下载", "Local ASR model not found, please download first")
             case .launchFailed(let e):
                 return L("服务启动失败: \(e.localizedDescription)", "Server launch failed: \(e.localizedDescription)")
             case .portDiscoveryFailed:
