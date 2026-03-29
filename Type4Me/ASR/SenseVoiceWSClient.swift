@@ -33,14 +33,25 @@ actor SenseVoiceWSClient: SpeechRecognizer {
         currentText = ""
         confirmedSegments = []
 
-        // Get server URL
-        guard let url = await SenseVoiceServerManager.shared.serverWSURL else {
-            throw SenseVoiceWSError.serverNotRunning
+        // Ensure server is running (may still be loading model from app launch)
+        let mgr = SenseVoiceServerManager.shared
+        let running = await mgr.isRunning
+        if !running {
+            try await mgr.start()
         }
 
-        // Verify server is healthy
-        guard await SenseVoiceServerManager.shared.isHealthy() else {
+        // Wait for server to become healthy (model loading can take ~10s)
+        var healthy = false
+        for _ in 0..<30 {
+            if await mgr.isHealthy() { healthy = true; break }
+            try await Task.sleep(for: .seconds(1))
+        }
+        guard healthy else {
             throw SenseVoiceWSError.serverNotHealthy
+        }
+
+        guard let url = await mgr.serverWSURL else {
+            throw SenseVoiceWSError.serverNotRunning
         }
 
         let session = URLSession(configuration: .default)
