@@ -1,5 +1,49 @@
 # Changelog
 
+## v1.5.0 — Dual-ASR + 三版本发布 (2026-03-30)
+
+### 🎯 Dual-ASR 架构
+
+全新双模型并行识别架构，大幅提升转写准确率：
+
+- **SenseVoice** 负责流式实时识别，说话时即时出字
+- **Qwen3-ASR** 负责精准校验，停顿时增量投机转录，松手后全量 final 校正
+- 设置页新增两个模型独立启停按钮 + 状态显示
+- 支持 Qwen3-only 模式（悬浮窗显示"录音中"）
+
+### 📦 三种 DMG 版本
+
+| 版本 | 包含内容 |
+|------|---------|
+| Cloud | 纯云端识别，最小体积 (~23MB) |
+| Lite | 内嵌 SenseVoice 本地模型 (~1.1GB) |
+| Full | SenseVoice + Qwen3-ASR + 本地 LLM (~6GB) |
+
+### 🗂 存储架构升级
+
+- 热词从 UserDefaults 迁移到双 JSON 文件 (builtin-hotwords.json + hotwords.json)
+- 片段替换同步迁移 (builtin-snippets.json + snippets.json)
+- 139 个内置默认热词
+- 词汇表 UI 全新设计：内置词数统计、Finder 一键打开编辑、刷新按钮
+
+### 🔧 LLM 管理
+
+- 设置页新增 LLM 启停按钮
+- `/llm/unload` 端点释放内存，`/llm/load` 重新加载
+- LLM 与 ASR 共享 GPU 推理锁，避免并发 Metal 冲突
+
+### 🐛 Bug 修复
+
+- 进程泄漏：PID 文件管理替代 pgrep 误杀
+- App 退出：同步 killAllServerProcesses 替代 fire-and-forget Task
+- PyTorch detach()：3 处 `.numpy()` 前补 `.detach()`
+- PyInstaller email-validator 依赖补全
+- 配置持久化：`UserDefaults.bool` → `object(forKey:) as? Bool ?? true`
+- onChange 初始化误触发防护
+- SenseVoice 端口检测：`isRunning` → `currentPort != nil`
+
+---
+
 ## v1.3.7 — 保留剪贴板 + Dock 图标 (2026-03-29)
 
 ### ✨ 新功能

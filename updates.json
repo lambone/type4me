@@ -1,6 +1,11 @@
 {
-  "latest": "1.4.0",
+  "latest": "1.5.0",
   "releases": [
+    {
+      "version": "1.5.0",
+      "date": "2026-03-30",
+      "notes": "- Dual-ASR 架构：SenseVoice 流式识别 + Qwen3-ASR 精准校验，说话时实时出字，停顿和松手后自动精校\n- 新增三种 DMG 版本：Cloud（纯云端）、Lite（SenseVoice 本地）、Full（双模型 + 本地 LLM）\n- 设置页：SenseVoice 和 Qwen3-ASR 独立启停按钮，LLM 启停 + 内存释放\n- 热词/片段存储迁移到 JSON 文件，支持内置词表 + 用户自定义，Finder 直接编辑\n- 词汇表 UI 全新设计：内置词数统计、一键打开编辑、刷新按钮\n- Bug 修复：进程泄漏（PID 文件管理）、退出清理、PyTorch detach、配置持久化、端口检测"
+    },
     {
       "version": "1.4.0",
       "date": "2026-03-30",
