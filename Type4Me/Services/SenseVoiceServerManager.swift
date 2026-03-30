@@ -63,13 +63,21 @@ actor SenseVoiceServerManager {
         // Kill any orphaned server processes from previous app runs
         killOrphanedServers()
 
+        // On Apple Silicon, kick off Qwen3-ASR early so it loads in parallel with SenseVoice.
+        // The Task runs on the same actor but interleaves at await suspension points,
+        // while actual port reading happens on DispatchQueue.global() truly in parallel.
+        var qwen3Task: Task<Void, Error>?
+        if Self.isAppleSilicon {
+            qwen3Task = Task { try await self.launchQwen3Server() }
+        }
+
         // SenseVoice is always the primary server (streaming partials + fallback final)
         try await launchSenseVoiceServer()
 
-        // On Apple Silicon, also start Qwen3-ASR for accurate speculative transcription
-        if Self.isAppleSilicon {
+        // Wait for Qwen3 if started
+        if let qwen3Task {
             do {
-                try await launchQwen3Server()
+                try await qwen3Task.value
             } catch {
                 // Graceful degradation: Qwen3 failure is not fatal, SenseVoice handles everything
                 logger.warning("Qwen3-ASR server failed to start, falling back to SenseVoice-only: \(error)")
