@@ -12,6 +12,11 @@ sleep 1
 
 APP_PATH="$APP_PATH" bash "$SCRIPT_DIR/package-app.sh"
 
+# Reset Accessibility TCC entry so the system re-prompts after rebuild.
+# Self-signed certs produce a new CDHash on every build, which silently
+# invalidates the old TCC record without triggering a new prompt.
+tccutil reset Accessibility com.type4me.app 2>/dev/null || true
+
 if [ "$LAUNCH_APP" = "1" ]; then
     echo "Launching via GUI session (no shell env vars)..."
     launchctl asuser "$(id -u)" /usr/bin/open "$APP_PATH"
